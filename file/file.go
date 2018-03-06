@@ -1,4 +1,4 @@
-package zxgo
+package file
 
 /*
 go get -u -v golang.org/x/text/transform
