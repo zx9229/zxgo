@@ -130,6 +130,7 @@ func (self *iterator_reader) init(filename string) (line string, err error, firs
 
 // 函数用法如下所示:
 // for line, err, first, last, iter := file.ReadLine("D:/_a.txt"); err == nil; line, err, first, last = iter.Next() {
+//     line = strings.TrimRight(line, "\r\n")
 //     fmt.Println(first, last, line)
 // }
 func ReadLine(filename string) (line string, err error, isFirst bool, isLast bool, iter *iterator_reader) {
