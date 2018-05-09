@@ -92,45 +92,45 @@ func AppendAllLines_bak(path string, contents []string, encodingType string) err
 }
 
 type iterator_reader struct { //内部使用的类,不能被外部创建.
-	f      *os.File
-	r      *bufio.Reader
-	isLast bool
+	f    *os.File
+	r    *bufio.Reader
+	last bool
 }
 
-func (self *iterator_reader) Next() (line string, err error, isFirst bool, isLast bool) {
-	if self.isLast {
+func (self *iterator_reader) Next() (line string, err error, first bool, last bool) {
+	if self.last {
 		err = io.EOF
 		return
 	}
 
-	isFirst = false
+	first = false
 	line, err = self.r.ReadString('\n')
 	if err != nil {
 		if err == io.EOF {
-			isLast = true
-			self.isLast = isLast
+			last = true
+			self.last = last
 			err = nil
 		}
 	} else {
-		isLast = false
+		last = false
 	}
 
 	return
 }
 
-func (self *iterator_reader) init(filename string) (line string, err error, isFirst bool, isLast bool) {
+func (self *iterator_reader) init(filename string) (line string, err error, first bool, last bool) {
 	self.f, err = os.Open(filename)
 	if err == nil {
 		self.r = bufio.NewReader(self.f)
-		line, err, isFirst, isLast = self.Next()
-		isFirst = true
+		line, err, first, last = self.Next()
+		first = true
 	}
 	return
 }
 
 // 函数用法如下所示:
-// for line, err, isFirst, isLast, iter := file.ReadLine("D:/_a.txt"); err == nil; line, err, isFirst, isLast = iter.Next() {
-//     fmt.Println(isFirst, isLast, line)
+// for line, err, first, last, iter := file.ReadLine("D:/_a.txt"); err == nil; line, err, first, last = iter.Next() {
+//     fmt.Println(first, last, line)
 // }
 func ReadLine(filename string) (line string, err error, isFirst bool, isLast bool, iter *iterator_reader) {
 	iter = &iterator_reader{nil, nil, false}
