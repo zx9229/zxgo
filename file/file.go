@@ -129,12 +129,23 @@ func (self *iterator_reader) init(filename string) (line string, err error, firs
 }
 
 // 函数用法如下所示:
-// for line, err, first, last, iter := file.ReadLine("D:/_a.txt"); err == nil; line, err, first, last = iter.Next() {
-//     line = strings.TrimRight(line, "\r\n")
-//     fmt.Println(first, last, line)
-// }
-func ReadLine(filename string) (line string, err error, isFirst bool, isLast bool, iter *iterator_reader) {
+//	var eOut string
+//	for line, err, first, last, iter := file.ReadLine("D:/_a.txt", &eOut); err == nil; line, err, first, last = iter.Next() {
+//		line = strings.TrimRight(line, "\r\n")
+//		fmt.Println(first, last, line)
+//	}
+//	if 0 < len(eOut) {
+//		fmt.Println(eOut)
+//	}
+func ReadLine(filename string, eOut *string) (line string, err error, isFirst bool, isLast bool, iter *iterator_reader) {
 	iter = &iterator_reader{nil, nil, false}
 	line, err, isFirst, isLast = iter.init(filename)
+	if eOut != nil {
+		if err != nil {
+			*eOut = err.Error()
+		} else {
+			*eOut = ""
+		}
+	}
 	return
 }

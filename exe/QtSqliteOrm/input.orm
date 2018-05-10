@@ -1,0 +1,19 @@
+struct Student //`tb_student`//学生
+{
+QString   name;        //`TEXT   ,NOT NULL`            //注释
+bool      sex;         //`INTEGER,NOT NULL`            //注释
+int       age;         //`INTEGER,NOT NULL`            //年龄
+long long id;          //`INTEGER,NOT NULL,PRIMARY KEY`//学号
+double    averageScore;//`REAL   ,NOT NULL`            //平均分
+QString   memo;        //`TEXT   ,    NULL`            //备注
+QString   appData;     //``                            //附加数据,该字段不存储到Sqlite中.
+};
+
+struct LogMessage//`tb_log_message`//日志消息
+{
+long long id;   //`INTEGER,NOT NULL,PRIMARY KEY,AUTOINCREMENT`
+QString time;   //`TEXT   ,NOT NULL`//日期时间.
+int     level;  //`INTEGER,NOT NULL`//日志等级.
+int     color;  //`INTEGER,NOT NULL`//日志颜色.
+QString message;//`TEXT   ,NOT NULL`//日志内容.
+};
