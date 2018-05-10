@@ -39,7 +39,7 @@ func (self *QtSqliteField) calc_SqliteNull() string {
 
 func (self *QtSqliteField) calc_SqlitePk() string {
 	if self.SqlitePk {
-		return "PK"
+		return "PRIMARY KEY"
 	} else {
 		return ""
 	}
@@ -194,6 +194,11 @@ func (self *QtSqliteField) generate_get_data_field(INDENT string, DELIMITER stri
 	line := ""
 	if self.QtDataType == "QString" {
 		line = fmt.Sprintf(`currData.%s = query.value("%s").toString();`, self.QtDataName, self.QtDataName)
+		slice_ = append(slice_, line)
+	} else if self.QtDataType == "bool" {
+		line = fmt.Sprintf(`currData.%s = query.value("%s").toBool(&isOk);`, self.QtDataName, self.QtDataName)
+		slice_ = append(slice_, line)
+		line = fmt.Sprintf(`if (!isOk) { currData.idq_%s = false; currData.%s = false; }`, self.QtDataName, self.QtDataName)
 		slice_ = append(slice_, line)
 	} else if self.QtDataType == "int" {
 		line = fmt.Sprintf(`currData.%s = query.value("%s").toInt(&isOk);`, self.QtDataName, self.QtDataName)
