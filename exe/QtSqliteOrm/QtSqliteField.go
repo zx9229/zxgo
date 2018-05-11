@@ -184,7 +184,7 @@ func (self *QtSqliteField) parseContent(line string) error {
 }
 
 func (self *QtSqliteField) generate_create_table_sql_field(maxFieldLen int) string {
-	format := `%-` + strconv.Itoa(maxFieldLen) + `s %-7s %-8s %v`
+	format := `%-` + strconv.Itoa(maxFieldLen) + `s %-7s %8s %v`
 	content := fmt.Sprintf(format, self.QtDataName, self.SqliteType, self.calc_SqliteNotNull(), strings.Join(self.SqliteOtherOptions, " "))
 	return content
 }
