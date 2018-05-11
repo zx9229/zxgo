@@ -15,7 +15,7 @@ type QtSqliteField struct {
 	QtDataName         string   //Qt中的字段名.
 	SqliteValid        bool     //该字段是否在Sqlite中.
 	SqliteType         string   //这一列在数据库中的类型(INTEGER,REAL,TEXT,BLOB).
-	SqliteNull         bool     //这一列是(NULL)还是(NOT NULL)
+	SqliteNotNull      bool     //这一列是(NULL)还是(NOT NULL)
 	SqlitePk           bool     //这一列是(PRIMARY KEY)吗
 	SqliteOtherOptions []string //sqlite的其他属性
 }
@@ -25,12 +25,12 @@ func newQtSqliteField() *QtSqliteField {
 	return newData
 }
 
-func (self *QtSqliteField) calc_SqliteNull() string {
+func (self *QtSqliteField) calc_SqliteNotNull() string {
 	if self.SqliteValid {
-		if self.SqliteNull {
-			return "NULL"
-		} else {
+		if self.SqliteNotNull {
 			return "NOT NULL"
+		} else {
+			return "NULL"
 		}
 	} else {
 		return ""
@@ -49,7 +49,7 @@ func (self *QtSqliteField) calc_SqliteSet() string {
 	if self.SqliteValid {
 		slice_ := make([]string, 0)
 		slice_ = append(slice_, self.SqliteType)
-		slice_ = append(slice_, self.calc_SqliteNull())
+		slice_ = append(slice_, self.calc_SqliteNotNull())
 		if self.SqlitePk {
 			slice_ = append(slice_, self.calc_SqlitePk())
 		}
@@ -61,7 +61,7 @@ func (self *QtSqliteField) calc_SqliteSet() string {
 }
 
 func isSqliteDatatype(content string) bool {
-	return (content == "NULL" || content == "INTEGER" || content == "REAL" || content == "TEXT" || content == "BLOB")
+	return (content == "INTEGER" || content == "REAL" || content == "TEXT" || content == "BLOB")
 }
 
 func isNullOrNotNull(content string) (matched bool, isNull bool) {
@@ -93,7 +93,7 @@ func (self *QtSqliteField) parseSqliteOptions(content string) error {
 		if isSqliteDatatype(field) {
 			self.SqliteType = field
 		} else if matched, isNull := isNullOrNotNull(field); matched {
-			self.SqliteNull = isNull
+			self.SqliteNotNull = !isNull
 		} else if isPrimaryKey(field) {
 			self.SqlitePk = true
 		} else {
@@ -185,7 +185,7 @@ func (self *QtSqliteField) parseContent(line string) error {
 
 func (self *QtSqliteField) generate_create_table_sql_field(maxFieldLen int) string {
 	format := `%-` + strconv.Itoa(maxFieldLen) + `s %-7s %-8s %v`
-	content := fmt.Sprintf(format, self.QtDataName, self.SqliteType, self.calc_SqliteNull(), strings.Join(self.SqliteOtherOptions, " "))
+	content := fmt.Sprintf(format, self.QtDataName, self.SqliteType, self.calc_SqliteNotNull(), strings.Join(self.SqliteOtherOptions, " "))
 	return content
 }
 
