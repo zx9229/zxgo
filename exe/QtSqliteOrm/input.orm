@@ -17,3 +17,16 @@ int     level;  //`INTEGER,NOT NULL`//日志等级.
 int     color;  //`INTEGER,NOT NULL`//日志颜色.
 QString message;//`TEXT   ,NOT NULL`//日志内容.
 };
+
+struct TestData//`tb_test_data`//测试用途.
+{
+QString            fieldS;  //`TEXT   ,NOT NULL,PRIMARY KEY`
+bool               fieldB;  //`INTEGER,NOT NULL`
+int                fieldI;  //`INTEGER,NOT NULL,PRIMARY KEY`
+unsigned int       fieldUI; //`INTEGER,NOT NULL`
+long long          fieldLL; //`INTEGER,NOT NULL,AUTOINCREMENT`
+unsigned long long fieldULL;//`INTEGER,NOT NULL`
+float              fieldF;  //`REAL   ,    NULL`
+double             fieldD;  //`REAL   ,    NULL`
+QString            appData; //``
+};

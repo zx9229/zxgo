@@ -196,17 +196,25 @@ func (self *QtSqliteField) generate_get_data_field(INDENT string, DELIMITER stri
 		line = fmt.Sprintf(`currData.%s = query.value("%s").toString();`, self.QtDataName, self.QtDataName)
 		slice_ = append(slice_, line)
 	} else if self.QtDataType == "bool" {
-		line = fmt.Sprintf(`currData.%s = query.value("%s").toBool(&isOk);`, self.QtDataName, self.QtDataName)
-		slice_ = append(slice_, line)
-		line = fmt.Sprintf(`if (!isOk) { currData.idq_%s = false; currData.%s = false; }`, self.QtDataName, self.QtDataName)
+		line = fmt.Sprintf(`currData.%s = query.value("%s").toBool();`, self.QtDataName, self.QtDataName)
 		slice_ = append(slice_, line)
 	} else if self.QtDataType == "int" {
 		line = fmt.Sprintf(`currData.%s = query.value("%s").toInt(&isOk);`, self.QtDataName, self.QtDataName)
 		slice_ = append(slice_, line)
 		line = fmt.Sprintf(`if (!isOk) { currData.idq_%s = false; currData.%s = 0; }`, self.QtDataName, self.QtDataName)
 		slice_ = append(slice_, line)
+	} else if self.QtDataType == "unsigned int" {
+		line = fmt.Sprintf(`currData.%s = query.value("%s").toUInt(&isOk);`, self.QtDataName, self.QtDataName)
+		slice_ = append(slice_, line)
+		line = fmt.Sprintf(`if (!isOk) { currData.idq_%s = false; currData.%s = 0; }`, self.QtDataName, self.QtDataName)
+		slice_ = append(slice_, line)
 	} else if self.QtDataType == "long long" {
 		line = fmt.Sprintf(`currData.%s = query.value("%s").toLongLong(&isOk);`, self.QtDataName, self.QtDataName)
+		slice_ = append(slice_, line)
+		line = fmt.Sprintf(`if (!isOk) { currData.idq_%s = false; currData.%s = 0; }`, self.QtDataName, self.QtDataName)
+		slice_ = append(slice_, line)
+	} else if self.QtDataType == "unsigned long long" {
+		line = fmt.Sprintf(`currData.%s = query.value("%s").toULongLong(&isOk);`, self.QtDataName, self.QtDataName)
 		slice_ = append(slice_, line)
 		line = fmt.Sprintf(`if (!isOk) { currData.idq_%s = false; currData.%s = 0; }`, self.QtDataName, self.QtDataName)
 		slice_ = append(slice_, line)
