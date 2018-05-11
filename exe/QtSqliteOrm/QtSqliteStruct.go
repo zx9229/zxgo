@@ -153,8 +153,8 @@ func (self *QtSqliteStruct) generate_insert_sql() string {
 		}
 		content += fmt.Sprintf(temp_str, fieldObj.QtDataName, fieldObj.QtDataName, fieldObj.QtDataName)
 	}
-	content += INDENT + "    strKey = strKey.left(strKey.length() - 1);" + DELIMITER
-	content += INDENT + "    strVal = strVal.left(strVal.length() - 1);" + DELIMITER
+	content += INDENT + "    strKey.chop(1);" + DELIMITER
+	content += INDENT + "    strVal.chop(1);" + DELIMITER
 	content += INDENT + `    QString sql = QObject::tr("%1 %2(%3) VALUES(%4)").QString::arg(sqlKeyword).QString::arg(table_name()).QString::arg(strKey).QString::arg(strVal);` + DELIMITER
 	content += INDENT + "    return sql;" + DELIMITER
 	content += INDENT + "};" + DELIMITER
