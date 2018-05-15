@@ -2,6 +2,7 @@ package zxxorm
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -26,7 +27,7 @@ func Update(engine *xorm.Engine, bean interface{}, condiBeans ...interface{}) er
 	return err
 }
 
-// 其行为如下所示:
+// 其行为如下所示(我感觉着不用"事务"也没问题):
 // 1. 无主键=>执行insert语句=>结束函数.
 // 2. 有主键=>where(主键)&update=>报错=>结束函数.
 //                             =>无错=>修改了数据=>结束函数.
@@ -36,7 +37,7 @@ func Upsert(engine *xorm.Engine, bean interface{}) error {
 
 	var tbInfo *xorm.Table = engine.TableInfo(bean)
 	if tbInfo == nil {
-		err = fmt.Errorf("找不到对应的表信息")
+		err = fmt.Errorf("找不到对应的TableInfo")
 		return err
 	}
 
@@ -52,16 +53,22 @@ func Upsert(engine *xorm.Engine, bean interface{}) error {
 	var query string = strings.Join(tbInfo.PrimaryKeys, " = ? AND ") + " = ?"
 	var args []interface{} = make([]interface{}, 0, len(tbInfo.PrimaryKeys))
 
-	for _, col := range tbInfo.Columns() {
+	for _, col := range tbInfo.Columns() { //我们在这里假设[tbInfo.PrimaryKeys]和[tbInfo.Columns()]的顺序是一致的.
 		var isPkField bool = false
-		for _, pkFieldName := range tbInfo.PrimaryKeys {
+		var __PkIndex int = -1
+		for idx, pkFieldName := range tbInfo.PrimaryKeys {
 			if pkFieldName == col.Name {
 				isPkField = true
+				__PkIndex = idx
 				break
 			}
 		}
 		if !isPkField {
 			continue
+		}
+		if len(args) != __PkIndex {
+			err = errors.New("假设不成立,请修改代码,让pkName和pkValue对应起来")
+			return err
 		}
 
 		var fieldValuePtr *reflect.Value = nil
@@ -84,12 +91,11 @@ func Upsert(engine *xorm.Engine, bean interface{}) error {
 		}
 		return err
 	}
-
 	if affected <= 0 {
 		affected, err = engine.InsertOne(bean)
 	}
 	if (affected <= 0 && err == nil) || (affected > 0 && err != nil) {
-		panic(fmt.Sprintf("xorm的逻辑异常,InsertOne,affected=%v,err=%v", affected, err))
+		panic(fmt.Sprintf("xorm的逻辑异常,Where+Update/InsertOne,affected=%v,err=%v", affected, err))
 	}
 
 	return err
