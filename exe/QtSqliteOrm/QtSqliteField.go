@@ -183,9 +183,15 @@ func (self *QtSqliteField) parseContent(line string) error {
 	return errors.New("can not parse it.")
 }
 
-func (self *QtSqliteField) generate_create_table_sql_field(maxFieldLen int) string {
+func (self *QtSqliteField) generate_create_table_sql_field_without_pk(maxFieldLen int) string {
 	format := `%-` + strconv.Itoa(maxFieldLen) + `s %-7s %8s %v`
 	content := fmt.Sprintf(format, self.QtDataName, self.SqliteType, self.calc_SqliteNotNull(), strings.Join(self.SqliteOtherOptions, " "))
+	return content
+}
+
+func (self *QtSqliteField) generate_create_table_sql_field_with_pk(maxFieldLen int) string {
+	format := `%-` + strconv.Itoa(maxFieldLen) + `s %-7s %8s %s %v`
+	content := fmt.Sprintf(format, self.QtDataName, self.SqliteType, self.calc_SqliteNotNull(), self.calc_SqlitePk(), strings.Join(self.SqliteOtherOptions, " "))
 	return content
 }
 

@@ -90,10 +90,23 @@ func (self *QtSqliteStruct) generate_table_name() string {
 	return content
 }
 
+func (self *QtSqliteStruct) calc_PrimaryKeySlice() []string {
+	fields4pk := make([]string, 0)
+	for _, fieldObj := range self.Fields {
+		if !fieldObj.SqliteValid {
+			continue
+		}
+		if fieldObj.SqlitePk {
+			fields4pk = append(fields4pk, fieldObj.QtDataName)
+		}
+	}
+	return fields4pk
+}
+
 func (self *QtSqliteStruct) generate_create_table_sql_pk() string {
 	content := ""
 
-	fields4pk := make([]string, 0)
+	fields4pk := self.calc_PrimaryKeySlice()
 	for _, fieldObj := range self.Fields {
 		if !fieldObj.SqliteValid {
 			continue
@@ -116,6 +129,7 @@ func (self *QtSqliteStruct) generate_create_table_sql() string {
 	temp_str := ""
 
 	maxFieldLen := self.calc_maxFieldLen()
+	pkCount := len(self.calc_PrimaryKeySlice())
 
 	content := ""
 	content += INDENT + "static QString create_table_sql()" + DELIMITER
@@ -126,10 +140,22 @@ func (self *QtSqliteStruct) generate_create_table_sql() string {
 		if !fieldObj.SqliteValid {
 			continue
 		}
-		content += fmt.Sprintf(temp_str, fieldObj.generate_create_table_sql_field(maxFieldLen))
+		if 2 <= pkCount {
+			content += fmt.Sprintf(temp_str, fieldObj.generate_create_table_sql_field_without_pk(maxFieldLen))
+		} else {
+			content += fmt.Sprintf(temp_str, fieldObj.generate_create_table_sql_field_with_pk(maxFieldLen))
+		}
+	}
+	if !(2 <= pkCount) {
+		content = strings.TrimSuffix(content, `,\`+DELIMITER)
+		content += ` \` + DELIMITER
 	}
 	temp_str = INDENT + `    %v  )").QString::arg(table_name());` + DELIMITER
-	content += fmt.Sprintf(temp_str, self.generate_create_table_sql_pk())
+	if 2 <= pkCount {
+		content += fmt.Sprintf(temp_str, self.generate_create_table_sql_pk())
+	} else {
+		content += fmt.Sprintf(temp_str, "")
+	}
 	content += INDENT + "    return sql;" + DELIMITER
 	content += INDENT + "};" + DELIMITER
 
