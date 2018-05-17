@@ -324,12 +324,12 @@ func (self *QtSqliteStruct) generate_pk_equal() string {
 	if len(fields4pk) == 0 {
 		content += INDENT + "    return false;" + DELIMITER
 	} else {
-		content += INDENT + "    if(" + DELIMITER
-		temp_str = INDENT + "       (this->%s == other.%s) &&" + DELIMITER
+		content += INDENT + "    if (" + DELIMITER
+		temp_str = INDENT + "        (this->%s == other.%s) &&" + DELIMITER
 		for _, field4pk := range fields4pk {
 			content += fmt.Sprintf(temp_str, field4pk, field4pk)
 		}
-		content += INDENT + "       true)" + DELIMITER
+		content += INDENT + "        true)" + DELIMITER
 		content += INDENT + "        return true;" + DELIMITER
 		content += INDENT + "    else" + DELIMITER
 		content += INDENT + "        return false;" + DELIMITER
