@@ -14,6 +14,7 @@ type QtSqliteField struct {
 	QtDataType         string   //Qt中的字段类型.
 	QtDataName         string   //Qt中的字段名.
 	SqliteValid        bool     //该字段是否在Sqlite中.
+	ObjectTableName    bool     //(使用)对象中存储的tableName吗.
 	SqliteType         string   //这一列在数据库中的类型(INTEGER,REAL,TEXT,BLOB).
 	SqliteNotNull      bool     //这一列是(NULL)还是(NOT NULL)
 	SqlitePk           bool     //这一列是(PRIMARY KEY)吗
@@ -21,7 +22,7 @@ type QtSqliteField struct {
 }
 
 func newQtSqliteField() *QtSqliteField {
-	newData := &QtSqliteField{"", "", false, "", false, false, make([]string, 0)}
+	newData := &QtSqliteField{"", "", false, false, "", false, false, make([]string, 0)}
 	return newData
 }
 
@@ -108,36 +109,13 @@ func (self *QtSqliteField) parseSqliteOptions(content string) error {
 }
 
 func (self *QtSqliteField) parseContent_1(line string) (matched bool, err error) {
-	pattern := "^[ \t]*(?P<QtDataType>[a-zA-Z0-9_: ]+?)[ \t]+(?P<QtDataName>[a-zA-Z0-9_:]+);[ \t]*//``"
-	allGroupMap := zxre.CalcAllGroupDict(pattern, line)
-	if len(allGroupMap) != 1 {
-		matched = false
-		err = nil
-		return
-	}
-
-	self.SqliteValid = false
-	matched = true
-
-	var ok bool
-
-	if self.QtDataType, ok = allGroupMap[0]["QtDataType"]; !ok || len(self.QtDataType) == 0 {
-		err = errors.New(fmt.Sprintf("can not find QtDataType, content=%v", line))
-		return
-	}
-
-	if self.QtDataName, ok = allGroupMap[0]["QtDataName"]; !ok || len(self.QtDataName) == 0 {
-		err = errors.New(fmt.Sprintf("can not find QtDataName, content=%v", line))
-		return
-	}
-
-	self.SqliteValid = false
-
+	matched = false
+	err = nil
 	return
 }
 
 func (self *QtSqliteField) parseContent_2(line string) (matched bool, err error) {
-	pattern := "^[ \t]*(?P<QtDataType>[a-zA-Z0-9_: ]+?)[ \t]+(?P<QtDataName>[a-zA-Z0-9_:]+);[ \t]*//`(?P<SqliteOptions>[a-zA-Z0-9_, \t]+?)`"
+	pattern := "^[ \t]*(?P<QtDataType>[a-zA-Z0-9_: ]+?)[ \t]+(?P<QtDataName>[a-zA-Z0-9_:]+);[ \t]*//`(?P<SqliteOptions>[a-zA-Z0-9_, \t]*?)`"
 	allGroupMap := zxre.CalcAllGroupDict(pattern, line)
 	if len(allGroupMap) != 1 {
 		matched = false
@@ -145,7 +123,6 @@ func (self *QtSqliteField) parseContent_2(line string) (matched bool, err error)
 		return
 	}
 
-	self.SqliteValid = true
 	matched = true
 
 	var ok bool
@@ -160,11 +137,22 @@ func (self *QtSqliteField) parseContent_2(line string) (matched bool, err error)
 		return
 	}
 
-	if SqliteOptions, ok := allGroupMap[0]["SqliteOptions"]; !ok || len(SqliteOptions) == 0 {
+	if SqliteOptions, ok := allGroupMap[0]["SqliteOptions"]; !ok {
 		err = errors.New(fmt.Sprintf("can not find SqliteOptions, content=%v", line))
+		return
 	} else {
-		if err = self.parseSqliteOptions(SqliteOptions); err != nil {
-			err = errors.New(fmt.Sprintf("parseSqliteOptions, %v, content=%v", err, line))
+		if len(SqliteOptions) == 0 {
+			self.SqliteValid = false
+			self.ObjectTableName = false
+		} else if 0 <= strings.Index(SqliteOptions, "ZX_TABLENAME") {
+			self.SqliteValid = false
+			self.ObjectTableName = true
+		} else {
+			self.SqliteValid = true
+			self.ObjectTableName = false
+			if err = self.parseSqliteOptions(SqliteOptions); err != nil {
+				err = errors.New(fmt.Sprintf("parseSqliteOptions, %v, content=%v", err, line))
+			}
 		}
 	}
 

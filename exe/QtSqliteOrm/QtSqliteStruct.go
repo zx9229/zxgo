@@ -19,6 +19,23 @@ func newQtSqliteStruct() *QtSqliteStruct {
 	return newData
 }
 
+func (self *QtSqliteStruct) GetField_ObjectTableName() *QtSqliteField {
+	slice_ := make([]*QtSqliteField, 0)
+	for _, field := range self.Fields {
+		if field.ObjectTableName {
+			slice_ = append(slice_, field)
+		}
+	}
+	if 2 <= len(slice_) {
+		panic("字段ObjectTableName过多")
+	}
+	if len(slice_) == 0 {
+		return nil
+	} else {
+		return slice_[0]
+	}
+}
+
 func (self *QtSqliteStruct) parseContent(line string) error {
 
 	if len(self.QtClassName) == 0 {
@@ -75,16 +92,36 @@ func (self *QtSqliteStruct) calc_maxFieldLen() int {
 	return maxLen
 }
 
-func (self *QtSqliteStruct) generate_table_name() string {
+func (self *QtSqliteStruct) generate_static_table_name() string {
 	INDENT := repeatContent("    ", 1)
 	DELIMITER := "\r\n"
 	temp_str := ""
 
 	content := ""
-	content += INDENT + "static QString table_name()" + DELIMITER
+	content += INDENT + "static QString static_table_name()" + DELIMITER
 	content += INDENT + "{" + DELIMITER
 	temp_str = INDENT + `    return "%v";` + DELIMITER
 	content += fmt.Sprintf(temp_str, self.Tablename)
+	content += INDENT + "};" + DELIMITER
+
+	return content
+}
+
+func (self *QtSqliteStruct) generate_object_table_name() string {
+	otnField := self.GetField_ObjectTableName()
+	if otnField == nil {
+		return ""
+	}
+
+	INDENT := repeatContent("    ", 1)
+	DELIMITER := "\r\n"
+	temp_str := ""
+
+	content := ""
+	content += INDENT + "QString object_table_name()" + DELIMITER
+	content += INDENT + "{" + DELIMITER
+	temp_str = INDENT + `    return (this->otn_%s ? this->%s : "");` + DELIMITER
+	content += fmt.Sprintf(temp_str, otnField.QtDataName, otnField.QtDataName)
 	content += INDENT + "};" + DELIMITER
 
 	return content
@@ -123,7 +160,7 @@ func (self *QtSqliteStruct) generate_create_table_sql_pk() string {
 	return content
 }
 
-func (self *QtSqliteStruct) generate_create_table_sql() string {
+func (self *QtSqliteStruct) generate_static_create_table_sql() string {
 	INDENT := repeatContent("    ", 1)
 	DELIMITER := "\r\n"
 	temp_str := ""
@@ -132,7 +169,7 @@ func (self *QtSqliteStruct) generate_create_table_sql() string {
 	pkCount := len(self.calc_PrimaryKeySlice())
 
 	content := ""
-	content += INDENT + "static QString create_table_sql()" + DELIMITER
+	content += INDENT + "static QString static_create_table_sql()" + DELIMITER
 	content += INDENT + "{" + DELIMITER
 	content += INDENT + `    QString sql = QObject::tr("CREATE TABLE IF NOT EXISTS %1 (\` + DELIMITER
 	temp_str = INDENT + `    %v,\` + DELIMITER
@@ -150,7 +187,53 @@ func (self *QtSqliteStruct) generate_create_table_sql() string {
 		content = strings.TrimSuffix(content, `,\`+DELIMITER)
 		content += ` \` + DELIMITER
 	}
-	temp_str = INDENT + `    %v  )").QString::arg(table_name());` + DELIMITER
+	temp_str = INDENT + `    %v  )").QString::arg(static_table_name());` + DELIMITER
+	if 2 <= pkCount {
+		content += fmt.Sprintf(temp_str, self.generate_create_table_sql_pk())
+	} else {
+		content += fmt.Sprintf(temp_str, "")
+	}
+	content += INDENT + "    return sql;" + DELIMITER
+	content += INDENT + "};" + DELIMITER
+
+	return content
+}
+
+func (self *QtSqliteStruct) generate_object_create_table_sql() string {
+	otnField := self.GetField_ObjectTableName()
+	if otnField == nil {
+		return ""
+	}
+
+	INDENT := repeatContent("    ", 1)
+	DELIMITER := "\r\n"
+	temp_str := ""
+
+	maxFieldLen := self.calc_maxFieldLen()
+	pkCount := len(self.calc_PrimaryKeySlice())
+
+	content := ""
+	content += INDENT + "QString object_create_table_sql()" + DELIMITER
+	content += INDENT + "{" + DELIMITER
+	temp_str = INDENT + `    if (this->otn_%s == false) { return ""; }` + DELIMITER
+	content += fmt.Sprintf(temp_str, otnField.QtDataName)
+	content += INDENT + `    QString sql = QObject::tr("CREATE TABLE IF NOT EXISTS %1 (\` + DELIMITER
+	temp_str = INDENT + `    %v,\` + DELIMITER
+	for _, fieldObj := range self.Fields {
+		if !fieldObj.SqliteValid {
+			continue
+		}
+		if 2 <= pkCount {
+			content += fmt.Sprintf(temp_str, fieldObj.generate_create_table_sql_field_without_pk(maxFieldLen))
+		} else {
+			content += fmt.Sprintf(temp_str, fieldObj.generate_create_table_sql_field_with_pk(maxFieldLen))
+		}
+	}
+	if !(2 <= pkCount) {
+		content = strings.TrimSuffix(content, `,\`+DELIMITER)
+		content += ` \` + DELIMITER
+	}
+	temp_str = INDENT + `    %v  )").QString::arg(object_table_name());` + DELIMITER
 	if 2 <= pkCount {
 		content += fmt.Sprintf(temp_str, self.generate_create_table_sql_pk())
 	} else {
@@ -181,7 +264,14 @@ func (self *QtSqliteStruct) generate_insert_sql() string {
 	}
 	content += INDENT + "    strKey.chop(1);" + DELIMITER
 	content += INDENT + "    strVal.chop(1);" + DELIMITER
-	content += INDENT + `    QString sql = QObject::tr("%1 %2(%3) VALUES(%4)").QString::arg(sqlKeyword).QString::arg(table_name()).QString::arg(strKey).QString::arg(strVal);` + DELIMITER
+
+	tablenamestr := "static_table_name()"
+	if otnField := self.GetField_ObjectTableName(); otnField != nil {
+		tablenamestr = fmt.Sprintf("this->otn_%s ? object_table_name() : static_table_name()", otnField.QtDataName)
+	}
+	temp_str = INDENT + `    QString sql = QObject::tr("%%1 %%2(%%3) VALUES(%%4)").QString::arg(sqlKeyword).QString::arg(%s).QString::arg(strKey).QString::arg(strVal);` + DELIMITER
+	content += fmt.Sprintf(temp_str, tablenamestr)
+
 	content += INDENT + "    return sql;" + DELIMITER
 	content += INDENT + "};" + DELIMITER
 
@@ -209,7 +299,14 @@ func (self *QtSqliteStruct) generate_delete_sql() string {
 	content := ""
 	content += INDENT + "QString delete_sql()" + DELIMITER
 	content += INDENT + "{" + DELIMITER
-	content += INDENT + `    QString sql = QObject::tr("DELETE FROM %1 WHERE 1=1 ").QString::arg(table_name());` + DELIMITER
+
+	tablenamestr := "static_table_name()"
+	if otnField := self.GetField_ObjectTableName(); otnField != nil {
+		tablenamestr = fmt.Sprintf("this->otn_%s ? object_table_name() : static_table_name()", otnField.QtDataName)
+	}
+	temp_str = INDENT + `    QString sql = QObject::tr("DELETE FROM %%1 WHERE 1=1 ").QString::arg(%s);` + DELIMITER
+	content += fmt.Sprintf(temp_str, tablenamestr)
+
 	temp_str = INDENT + `    if (this->idq_%s) { sql += QObject::tr("AND %s='%%1' ").QString::arg(this->%s); }` + DELIMITER
 	for _, fieldObj := range self.Fields {
 		if !fieldObj.SqliteValid {
@@ -276,7 +373,14 @@ func (self *QtSqliteStruct) generate_query_sql() string {
 	content := ""
 	content += INDENT + "QString query_sql()" + DELIMITER
 	content += INDENT + "{" + DELIMITER
-	content += INDENT + `    QString sql = QObject::tr("SELECT * FROM %1 WHERE 1=1 ").QString::arg(table_name());` + DELIMITER
+
+	tablenamestr := "static_table_name()"
+	if otnField := self.GetField_ObjectTableName(); otnField != nil {
+		tablenamestr = fmt.Sprintf("this->otn_%s ? object_table_name() : static_table_name()", otnField.QtDataName)
+	}
+	temp_str = INDENT + `    QString sql = QObject::tr("SELECT * FROM %%1 WHERE 1=1 ").QString::arg(%s);` + DELIMITER
+	content += fmt.Sprintf(temp_str, tablenamestr)
+
 	temp_str = INDENT + `    if (this->idq_%s) { sql += QObject::tr("AND %s='%%1' ").QString::arg(this->%s); }` + DELIMITER
 	for _, fieldObj := range self.Fields {
 		if !fieldObj.SqliteValid {
@@ -311,17 +415,20 @@ func (self *QtSqliteStruct) generate_query_data() string {
 func (self *QtSqliteStruct) generate_flush_flag() string {
 	INDENT := repeatContent("    ", 1)
 	DELIMITER := "\r\n"
-	temp_str := ""
 
 	content := ""
 	content += INDENT + "void flush_flag(bool flagValue)" + DELIMITER
 	content += INDENT + "{" + DELIMITER
-	temp_str = INDENT + `    this->idq_%s = flagValue;` + DELIMITER
+	tmpStr1 := INDENT + `    this->idq_%s = flagValue;` + DELIMITER
+	tmpStr2 := INDENT + `    this->otn_%s = flagValue;` + DELIMITER
 	for _, fieldObj := range self.Fields {
-		if !fieldObj.SqliteValid {
-			continue
+		if fieldObj.SqliteValid {
+			content += fmt.Sprintf(tmpStr1, fieldObj.QtDataName)
+		} else {
+			if fieldObj.ObjectTableName {
+				content += fmt.Sprintf(tmpStr2, fieldObj.QtDataName)
+			}
 		}
-		content += fmt.Sprintf(temp_str, fieldObj.QtDataName)
 	}
 	content += INDENT + "};" + DELIMITER
 
@@ -371,13 +478,17 @@ func (self *QtSqliteStruct) generate_cxx_definition_members() string {
 
 	content := ""
 	tmpStr1 := INDENT + `%s %s;//%s` + DELIMITER
-	tmpStr2 := INDENT + `bool idq_%s;` + DELIMITER
+	tmpStr2 := INDENT + `bool idq_%s;` + DELIMITER //insert+delete+query
+	tmpStr3 := INDENT + `bool otn_%s;` + DELIMITER //object_table_name
 	for _, fieldObj := range self.Fields {
 		content += fmt.Sprintf(tmpStr1, fieldObj.QtDataType, fieldObj.QtDataName, fieldObj.calc_SqliteSet())
-		if !fieldObj.SqliteValid {
-			continue
+		if fieldObj.SqliteValid {
+			content += fmt.Sprintf(tmpStr2, fieldObj.QtDataName)
+		} else {
+			if fieldObj.ObjectTableName {
+				content += fmt.Sprintf(tmpStr3, fieldObj.QtDataName)
+			}
 		}
-		content += fmt.Sprintf(tmpStr2, fieldObj.QtDataName)
 	}
 
 	return content
@@ -391,8 +502,10 @@ func (self *QtSqliteStruct) generate_cxx_definition() string {
 	content += "public:" + DELIMITER
 	content += self.generate_cxx_definition_members()
 	content += "public:" + DELIMITER
-	content += self.generate_table_name()
-	content += self.generate_create_table_sql()
+	content += self.generate_static_table_name()
+	content += self.generate_object_table_name()
+	content += self.generate_static_create_table_sql()
+	content += self.generate_object_create_table_sql()
 	content += self.generate_insert_sql()
 	content += self.generate_insert_data()
 	content += self.generate_delete_sql()

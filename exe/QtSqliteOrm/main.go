@@ -59,6 +59,14 @@ func main() {
 			file.Close()
 		}
 	}
+
+	file.AppendLine(*outputFilenamePtr, "#include <QObject>", true)
+	file.AppendLine(*outputFilenamePtr, "#include <QString>", true)
+	file.AppendLine(*outputFilenamePtr, "#include <QVariant>", true)
+	file.AppendLine(*outputFilenamePtr, "#include <QSqlQuery>", true)
+	file.AppendLine(*outputFilenamePtr, "", true)
+	file.AppendLine(*outputFilenamePtr, "", true)
+
 	for _, currStruct := range allStruct {
 		strData := currStruct.generate_cxx_definition()
 		file.AppendLine(*outputFilenamePtr, strData, true)
