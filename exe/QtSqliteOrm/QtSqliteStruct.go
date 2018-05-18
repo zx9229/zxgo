@@ -160,6 +160,40 @@ func (self *QtSqliteStruct) generate_create_table_sql_pk() string {
 	return content
 }
 
+func (self *QtSqliteStruct) generate_static_drop_table_sql() string {
+	INDENT := repeatContent("    ", 1)
+	DELIMITER := "\r\n"
+
+	content := ""
+	content += INDENT + "static QString static_drop_table_sql()" + DELIMITER
+	content += INDENT + "{" + DELIMITER
+	content += INDENT + `    QString sql = QObject::tr("DROP TABLE IF EXISTS %1").QString::arg(static_table_name());` + DELIMITER
+	content += INDENT + "    return sql;" + DELIMITER
+	content += INDENT + "};" + DELIMITER
+
+	return content
+}
+
+func (self *QtSqliteStruct) generate_object_drop_table_sql() string {
+	otnField := self.GetField_ObjectTableName()
+	if otnField == nil {
+		return ""
+	}
+
+	INDENT := repeatContent("    ", 1)
+	DELIMITER := "\r\n"
+
+	content := ""
+	content += INDENT + "QString object_drop_table_sql()" + DELIMITER
+	content += INDENT + "{" + DELIMITER
+	content += INDENT + `    if (this->otn_tableName == false) { return ""; }` + DELIMITER
+	content += INDENT + `    QString sql = QObject::tr("DROP TABLE IF EXISTS %1").QString::arg(object_table_name());` + DELIMITER
+	content += INDENT + "    return sql;" + DELIMITER
+	content += INDENT + "};" + DELIMITER
+
+	return content
+}
+
 func (self *QtSqliteStruct) generate_static_create_table_sql() string {
 	INDENT := repeatContent("    ", 1)
 	DELIMITER := "\r\n"
@@ -504,6 +538,8 @@ func (self *QtSqliteStruct) generate_cxx_definition() string {
 	content += "public:" + DELIMITER
 	content += self.generate_static_table_name()
 	content += self.generate_object_table_name()
+	content += self.generate_static_drop_table_sql()
+	content += self.generate_object_drop_table_sql()
 	content += self.generate_static_create_table_sql()
 	content += self.generate_object_create_table_sql()
 	content += self.generate_insert_sql()
