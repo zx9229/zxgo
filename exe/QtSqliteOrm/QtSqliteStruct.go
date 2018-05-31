@@ -144,14 +144,6 @@ func (self *QtSqliteStruct) generate_create_table_sql_pk() string {
 	content := ""
 
 	fields4pk := self.calc_PrimaryKeySlice()
-	for _, fieldObj := range self.Fields {
-		if !fieldObj.SqliteValid {
-			continue
-		}
-		if fieldObj.SqlitePk {
-			fields4pk = append(fields4pk, fieldObj.QtDataName)
-		}
-	}
 
 	if 0 < len(fields4pk) {
 		content = fmt.Sprintf("PRIMARY KEY(%v)", strings.Join(fields4pk, ","))
