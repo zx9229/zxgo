@@ -11,8 +11,16 @@ import (
 	"github.com/go-xorm/xorm"
 )
 
-func InsertOne(engine *xorm.Engine, bean interface{}) error {
+func EngineInsertOne(engine *xorm.Engine, bean interface{}) error {
 	affected, err := engine.InsertOne(bean)
+	if (affected <= 0 && err == nil) || (affected > 0 && err != nil) {
+		panic(fmt.Sprintf("xorm的逻辑异常,InsertOne,affected=%v,err=%v", affected, err))
+	}
+	return err
+}
+
+func SessionInsertOne(session *xorm.Session, bean interface{}) error {
+	affected, err := session.InsertOne(bean)
 	if (affected <= 0 && err == nil) || (affected > 0 && err != nil) {
 		panic(fmt.Sprintf("xorm的逻辑异常,InsertOne,affected=%v,err=%v", affected, err))
 	}
