@@ -75,3 +75,31 @@ func ModifyByMap(data interface{}, kvs map[string]string, upperKey bool) {
 		}
 	}
 }
+
+//  使用例子:
+//  type UserData struct {
+//  	Id         int64
+//  	Name       string
+//  	CreateTime time.Time
+//  	Memo       string
+//  }
+//  func test() {
+//  	data := new(UserData)
+//  	fmt.Println(GuessFieldNameByOffset(data, unsafe.Offsetof(data.CreateTime), true))
+//  }
+func GuessFieldNameByOffset(data interface{}, offset uintptr, panicWhenError bool) string {
+	elem := reflect.ValueOf(data).Elem()
+	matchedAddr := elem.UnsafeAddr() + offset
+
+	for i := 0; i < elem.NumField(); i++ {
+		if elem.Field(i).UnsafeAddr() == matchedAddr {
+			return elem.Type().Field(i).Name
+		}
+	}
+
+	if panicWhenError {
+		panic("No fields found to match")
+	}
+
+	return ""
+}
