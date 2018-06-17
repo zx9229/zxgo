@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-xorm/core"
 	"github.com/go-xorm/xorm"
+	"github.com/zx9229/zxgo"
 )
 
 func EngineInsertOne(engine *xorm.Engine, bean interface{}) error {
@@ -270,4 +271,28 @@ func EngineUpdateByPk(engine *xorm.Engine, bean interface{}) (affected int64, er
 		panic(fmt.Sprintf("xorm的逻辑异常,Where+Update/InsertOne,affected=%v,err=%v", affected, err))
 	}
 	return
+}
+
+func GuessColName(engine *xorm.Engine, bean interface{}, offset uintptr, panicWhenError bool) string {
+	var colName string
+	for _ = range "1" {
+		fieldName := zxgo.GuessFieldNameByOffset(bean, offset, panicWhenError)
+		if !panicWhenError && len(fieldName) <= 0 {
+			break
+		}
+		var tbInfo *xorm.Table = engine.TableInfo(bean)
+		if tbInfo == nil {
+			break
+		}
+		for _, col := range tbInfo.Columns() { //我们在这里假设[tbInfo.PrimaryKeys]和[tbInfo.Columns()]的顺序是一致的.
+			if col.FieldName == fieldName {
+				colName = col.Name
+				break
+			}
+		}
+	}
+	if panicWhenError && len(colName) <= 0 {
+		panic("No columns found to match")
+	}
+	return colName
 }
