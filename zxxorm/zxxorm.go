@@ -93,7 +93,7 @@ func Upsert(engine *xorm.Engine, bean interface{}) error {
 	}
 
 	var affected int64
-	if affected, err = engine.Where(query, args...).Update(bean); err != nil {
+	if affected, err = engine.AllCols().Where(query, args...).Update(bean); err != nil {
 		if affected > 0 {
 			panic(fmt.Sprintf("xorm的逻辑异常,Where+Update,affected=%v,err=%v", affected, err))
 		}
@@ -201,4 +201,73 @@ func value2Interface(col *core.Column, fieldValue reflect.Value) (interface{}, e
 	default:
 		return fieldValue.Interface(), nil
 	}
+}
+
+func calcPkQueryStatement(engine *xorm.Engine, bean interface{}) (query string, args []interface{}, err error) {
+	var tbInfo *xorm.Table = engine.TableInfo(bean)
+	if tbInfo == nil {
+		err = fmt.Errorf("找不到对应的TableInfo")
+		return
+	}
+
+	if tbInfo.PrimaryKeys == nil || len(tbInfo.PrimaryKeys) == 0 {
+		err = fmt.Errorf("没有主键")
+		return
+	}
+
+	query = strings.Join(tbInfo.PrimaryKeys, " = ? AND ") + " = ?"
+	args = make([]interface{}, 0, len(tbInfo.PrimaryKeys))
+
+	for _, col := range tbInfo.Columns() { //我们在这里假设[tbInfo.PrimaryKeys]和[tbInfo.Columns()]的顺序是一致的.
+		var isPkField bool = false
+		var __PkIndex int = -1
+		for idx, pkFieldName := range tbInfo.PrimaryKeys {
+			if pkFieldName == col.Name {
+				isPkField = true
+				__PkIndex = idx
+				break
+			}
+		}
+		if !isPkField {
+			continue
+		}
+		if len(args) != __PkIndex {
+			err = errors.New("假设不成立,请修改代码,让pkName和pkValue对应起来")
+			query = ""
+			args = nil
+			return
+		}
+
+		var fieldValuePtr *reflect.Value = nil
+		if fieldValuePtr, err = col.ValueOf(bean); err != nil {
+			query = ""
+			args = nil
+			return
+		}
+
+		var arg interface{}
+		if arg, err = value2Interface(col, *fieldValuePtr); err != nil {
+			query = ""
+			args = nil
+			return
+		}
+
+		args = append(args, arg)
+	}
+
+	return
+}
+
+func EngineUpdateByPk(engine *xorm.Engine, bean interface{}) (affected int64, err error) {
+	var query string
+	var args []interface{}
+	query, args, err = calcPkQueryStatement(engine, bean)
+	if err != nil {
+		return
+	}
+	affected, err = engine.AllCols().Where(query, args...).Update(bean)
+	if (affected <= 0 && err == nil) || (affected > 0 && err != nil) {
+		panic(fmt.Sprintf("xorm的逻辑异常,Where+Update/InsertOne,affected=%v,err=%v", affected, err))
+	}
+	return
 }
