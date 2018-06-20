@@ -17,6 +17,7 @@ type ConfigData struct {
 	ShowHash bool   //显示文件的哈希值
 	HashType string //要显示的哈希类型
 	RootPath string //要遍历的根目录
+	Depth    int    //路径的深度
 	pattern  *regexp.Regexp
 }
 
@@ -27,6 +28,14 @@ func WalkCallbackFunc(path string, info os.FileInfo, err error) error {
 	if err != nil {
 		fmt.Println(fmt.Sprintf("ERROR, path=%v, err=%v", path, err))
 		return err
+	}
+
+	if 0 < GlobalConfig.Depth {
+		relativePath := strings.SplitN(path, GlobalConfig.RootPath, 2)[1]
+		curLevel := len(strings.Split(relativePath, string(os.PathSeparator))) - 1
+		if GlobalConfig.Depth < curLevel {
+			return nil
+		}
 	}
 
 	if GlobalConfig.pattern != nil {
@@ -69,6 +78,7 @@ func main() {
 	hashTypePtr := flag.String("type", "md5", "set hash type")
 	rootPathPtr := flag.String("root", ".", "set root path")
 	patternPtr := flag.String("pattern", "", "set regexp pattern")
+	depthPtr := flag.Int("depth", 0, "set path maximum depth")
 	//所有标志都声明完成以后，调用 flag.Parse() 来执行命令行解析。
 	flag.Parse()
 
@@ -81,6 +91,7 @@ func main() {
 	GlobalConfig.ShowTime = *timeShowPtr
 	GlobalConfig.ShowHash = *hashShowPtr
 	GlobalConfig.HashType = *hashTypePtr
+	GlobalConfig.Depth = *depthPtr
 	if absRootPath, err := filepath.Abs(*rootPathPtr); err != nil {
 		fmt.Println(fmt.Sprintf("ERROR, filepath.Abs FAIL, path=%v, err=%v", *rootPathPtr, err))
 		os.Exit(100)
@@ -88,6 +99,7 @@ func main() {
 	} else {
 		GlobalConfig.RootPath = absRootPath
 	}
+
 	if len(*patternPtr) > 0 {
 		var err error = nil
 		GlobalConfig.pattern, err = regexp.Compile(*patternPtr)
