@@ -34,7 +34,7 @@ func WalkCallbackFunc(path string, info os.FileInfo, err error) error {
 		relativePath := strings.SplitN(path, GlobalConfig.RootPath, 2)[1]
 		curLevel := len(strings.Split(relativePath, string(os.PathSeparator))) - 1
 		if GlobalConfig.Depth < curLevel {
-			return nil
+			return filepath.SkipDir
 		}
 	}
 
@@ -92,16 +92,16 @@ func main() {
 	GlobalConfig.ShowHash = *hashShowPtr
 	GlobalConfig.HashType = *hashTypePtr
 	GlobalConfig.Depth = *depthPtr
-	if absRootPath, err := filepath.Abs(*rootPathPtr); err != nil {
+	if absRootPath, err := filepath.Abs(*rootPathPtr); err == nil {
+		GlobalConfig.RootPath = absRootPath
+	} else {
 		fmt.Println(fmt.Sprintf("ERROR, filepath.Abs FAIL, path=%v, err=%v", *rootPathPtr, err))
 		os.Exit(100)
 		return
-	} else {
-		GlobalConfig.RootPath = absRootPath
 	}
 
 	if len(*patternPtr) > 0 {
-		var err error = nil
+		var err error
 		GlobalConfig.pattern, err = regexp.Compile(*patternPtr)
 		if err != nil {
 			fmt.Println(fmt.Printf("ERROR, regexp.Compile FAIL, expr=%v, err=%v", *patternPtr, err))
