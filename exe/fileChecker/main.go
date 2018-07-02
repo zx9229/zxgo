@@ -13,136 +13,8 @@ import (
 	"github.com/zx9229/zxgo"
 )
 
-type ConfigData struct {
-	ShowSize bool   //显示文件的大小
-	ShowTime bool   //显示文件的修改时间
-	ShowHash bool   //显示文件的哈希值
-	HashType string //要显示的哈希类型
-	RootPath string //要遍历的根目录
-	Depth    int    //路径的深度
-	pattern  *regexp.Regexp
-}
-
-var GlobalConfig = &ConfigData{}
-
-func WalkCallbackFunc(path string, info os.FileInfo, err error) error {
-
-	fmt.Println(path)
-	fmt.Println(info.Name())
-	if err != nil {
-		fmt.Println(fmt.Sprintf("ERROR, path=%v, err=%v", path, err))
-		return err
-	}
-
-	if 0 < GlobalConfig.Depth {
-		relativePath := strings.SplitN(path, GlobalConfig.RootPath, 2)[1]
-		curLevel := len(strings.Split(relativePath, string(os.PathSeparator))) - 1
-		if GlobalConfig.Depth < curLevel {
-			return filepath.SkipDir
-		}
-	}
-
-	if GlobalConfig.pattern != nil {
-		if GlobalConfig.pattern.MatchString(info.Name()) == false {
-			return nil
-		}
-	}
-
-	if info.IsDir() {
-		return nil
-	}
-
-	hexStr, err := zxgo.CalcHash(path, GlobalConfig.HashType, true)
-	if err != nil {
-		fmt.Println(fmt.Sprintf("ERROR, CalcHash FAIL, path=%v, err=%v", path, err))
-		return err
-	}
-
-	showStr := fmt.Sprintf("ROOTPATH%v", strings.SplitN(path, GlobalConfig.RootPath, 2)[1])
-	if GlobalConfig.ShowHash {
-		showStr += fmt.Sprintf(", %v", hexStr)
-	}
-	if GlobalConfig.ShowTime {
-		showStr += fmt.Sprintf(", %v", info.ModTime().Format("2006-01-02 15:04:05"))
-	}
-	if GlobalConfig.ShowSize {
-		showStr += fmt.Sprintf(", %v", info.Size())
-	}
-
-	fmt.Println(showStr)
-
-	return nil
-}
-
-func main() {
-	flagConfig := FlagConfigData{}
-
-	flagConfig.helpPtr = flag.Bool("help", false, "show this help")
-	flagConfig.formatPtr = flag.String("format", "<RELNAME>, <MD5>, <SIZE>", "set root path")
-	flagConfig.namePtr = flag.String("name", "", "set file path")
-	flagConfig.rootPtr = flag.String("root", ".", "set root path")
-	flagConfig.matchPtr = flag.String("match", "NAME", "NAME,RELNAME,ABSNAME")
-	flagConfig.globPtr = flag.String("glob", "", "glob")
-	flagConfig.regexpPtr = flag.String("regexp", "", "regexp")
-	flagConfig.depthPtr = flag.Int("depth", 0, "set path maximum depth")
-	//所有标志都声明完成以后，调用 flag.Parse() 来执行命令行解析。
-	flag.Parse()
-
-	if *flagConfig.helpPtr {
-		flag.Usage()
-		return
-	}
-
-	if cfg, err := flagConfig.to(); err == nil {
-		_2GlobalConfig = cfg
-	} else {
-		fmt.Println(err)
-		os.Exit(100)
-		return
-	}
-
-	if _2GlobalConfig.name != EmptyStr {
-		info, err := os.Lstat(_2GlobalConfig.name)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(100)
-			return
-		}
-		tmpAbsName, _ := filepath.Abs(_2GlobalConfig.name)
-		tmpRootStr := filepath.Dir(tmpAbsName)
-		fmtData, err := _fileTest(tmpRootStr, tmpAbsName, info, _2GlobalConfig.format)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(100)
-			return
-		}
-		fmt.Println(fmt.Sprintf("RootPath=%v", tmpRootStr))
-		fmt.Println(fmtData)
-		return
-	}
-
-	//os.Getwd() [Getwd返回与当前目录对应的根路径名].
-	fmt.Println(fmt.Sprintf("RootPath=%v", _2GlobalConfig.root))
-	if err := filepath.Walk(_2GlobalConfig.root, _2WalkCallbackFunc); err != nil {
-		fmt.Println(fmt.Printf("ERROR, filepath.Walk FAIL, err=%v", err))
-		os.Exit(100)
-		return
-	}
-}
-
-type FlagConfigData struct {
-	helpPtr   *bool
-	formatPtr *string
-	namePtr   *string
-	rootPtr   *string
-	matchPtr  *string //NAME,RELNAME,ABSNAME
-	globPtr   *string
-	regexpPtr *string
-	depthPtr  *int
-}
-
-type MyConfigData struct {
-	format  string
+type CommonConfigData struct {
+	fmt     string
 	name    string
 	root    string
 	match   string
@@ -151,20 +23,25 @@ type MyConfigData struct {
 	depth   int
 }
 
-const (
-	NAME     string = "NAME"    //文件的basename
-	RELNAME  string = "RELNAME" //文件相对root的相对目录
-	ABSNAME  string = "ABSNAME" //文件的绝对目录
-	EmptyStr string = ""
-)
+type FlagConfigData struct {
+	helpPtr   *bool
+	fmtPtr    *string
+	namePtr   *string
+	rootPtr   *string
+	matchPtr  *string //NAME,RELNAME,ABSNAME
+	globPtr   *string
+	regexpPtr *string
+	depthPtr  *int
+}
 
-func (thls *FlagConfigData) to() (cfg MyConfigData, err error) {
+func (thls *FlagConfigData) toCommon() (cfg *CommonConfigData, err error) {
+	cfg = new(CommonConfigData)
 	for range "1" {
-		if len(*thls.formatPtr) <= 0 {
+		if len(*thls.fmtPtr) <= 0 {
 			err = errors.New("format an empty string")
 			break
 		}
-		cfg.format = *thls.formatPtr
+		cfg.fmt = *thls.fmtPtr
 
 		if *thls.namePtr != EmptyStr {
 			cfg.name = *thls.namePtr
@@ -204,12 +81,79 @@ func (thls *FlagConfigData) to() (cfg MyConfigData, err error) {
 		}
 	}
 
+	if err != nil {
+		cfg = nil
+	}
+
 	return
 }
 
-var _2GlobalConfig = MyConfigData{}
+const (
+	NAME     string = "NAME"    //文件的basename
+	RELNAME  string = "RELNAME" //文件相对root的相对目录
+	ABSNAME  string = "ABSNAME" //文件的绝对目录
+	EmptyStr string = ""
+)
 
-func _fileTest(rootDir string, absName string, info os.FileInfo, fmtData string) (data string, err error) {
+var GlobalCfg *CommonConfigData = nil
+
+func main() {
+	flagConfig := FlagConfigData{}
+
+	flagConfig.helpPtr = flag.Bool("help", false, "show this help")
+	flagConfig.fmtPtr = flag.String("fmt", "<RELNAME>, <MD5>, <SIZE>", "combine with <MD5>,<SIZE>,<MTIME>,<NAME>,<RELNAME>,<ABSNAME>")
+	flagConfig.namePtr = flag.String("name", "", "set file name")
+	flagConfig.rootPtr = flag.String("root", ".", "set root path")
+	flagConfig.matchPtr = flag.String("match", "NAME", "one of NAME,RELNAME,ABSNAME")
+	flagConfig.globPtr = flag.String("glob", "", "match with glob")
+	flagConfig.regexpPtr = flag.String("regexp", "", "match with regexp")
+	flagConfig.depthPtr = flag.Int("depth", 0, "set path maximum depth")
+	//所有标志都声明完成以后，调用 flag.Parse() 来执行命令行解析。
+	flag.Parse()
+
+	if *flagConfig.helpPtr {
+		flag.Usage()
+		return
+	}
+
+	if cfg, err := flagConfig.toCommon(); err == nil {
+		GlobalCfg = cfg
+	} else {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(100)
+		return
+	}
+
+	if GlobalCfg.name != EmptyStr {
+		info, err := os.Lstat(GlobalCfg.name)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(100)
+			return
+		}
+		tmpAbsName, _ := filepath.Abs(GlobalCfg.name)
+		tmpRootStr := filepath.Dir(tmpAbsName)
+		fmtData, err := _formatData(tmpRootStr, tmpAbsName, info, GlobalCfg.fmt)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(100)
+			return
+		}
+		fmt.Println(fmt.Sprintf("RootPath=%v", tmpRootStr))
+		fmt.Println(fmtData)
+		return
+	}
+
+	//os.Getwd() [Getwd返回与当前目录对应的根路径名].
+	fmt.Println(fmt.Sprintf("RootPath=%v", GlobalCfg.root))
+	if err := filepath.Walk(GlobalCfg.root, _WalkCallbackFunc); err != nil {
+		fmt.Println(fmt.Printf("ERROR, filepath.Walk FAIL, err=%v", err))
+		os.Exit(100)
+		return
+	}
+}
+
+func _formatData(rootDir string, absName string, info os.FileInfo, fmtData string) (data string, err error) {
 	var md5Data string
 	if info.IsDir() {
 		err = errors.New("is not file")
@@ -277,7 +221,7 @@ func calcRelName(rootDir string, absName string) string {
 	return fmt.Sprintf("%v%v", headData, strings.SplitN(absName, rootDir, 2)[1])
 }
 
-func _isMatch(rootDir, absName string, info os.FileInfo, glob string, pattern *regexp.Regexp, matchType string) bool {
+func isMatch(rootDir, absName string, info os.FileInfo, glob string, pattern *regexp.Regexp, matchType string) bool {
 
 	if glob == EmptyStr && pattern == nil {
 		return true
@@ -311,7 +255,7 @@ func _isMatch(rootDir, absName string, info os.FileInfo, glob string, pattern *r
 	return matched
 }
 
-func _2WalkCallbackFunc(path string, info os.FileInfo, errIn error) error {
+func _WalkCallbackFunc(path string, info os.FileInfo, errIn error) error {
 	var err error
 	if errIn != nil {
 		err = errIn
@@ -319,10 +263,10 @@ func _2WalkCallbackFunc(path string, info os.FileInfo, errIn error) error {
 		return err
 	}
 
-	if info.IsDir() && 0 < _2GlobalConfig.depth {
-		relativePath := strings.SplitN(path, _2GlobalConfig.root, 2)[1]
+	if info.IsDir() && 0 < GlobalCfg.depth {
+		relativePath := strings.SplitN(path, GlobalCfg.root, 2)[1]
 		curLevel := len(strings.Split(relativePath, string(os.PathSeparator))) - 1
-		if _2GlobalConfig.depth < curLevel {
+		if GlobalCfg.depth < curLevel {
 			return filepath.SkipDir
 		}
 	}
@@ -331,11 +275,11 @@ func _2WalkCallbackFunc(path string, info os.FileInfo, errIn error) error {
 		return err
 	}
 
-	if !_isMatch(_2GlobalConfig.root, path, info, _2GlobalConfig.glob, _2GlobalConfig.pattern, _2GlobalConfig.match) {
+	if !isMatch(GlobalCfg.root, path, info, GlobalCfg.glob, GlobalCfg.pattern, GlobalCfg.match) {
 		return nil
 	}
 
-	fmtData, err := _fileTest(_2GlobalConfig.root, path, info, _2GlobalConfig.format)
+	fmtData, err := _formatData(GlobalCfg.root, path, info, GlobalCfg.fmt)
 	if err != nil {
 		fmt.Println(fmt.Sprintf("[ERROR] %v, err=%v", path, err))
 		err = nil
