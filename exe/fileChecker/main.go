@@ -13,7 +13,7 @@ import (
 	"github.com/zx9229/zxgo"
 )
 
-type CommonConfigData struct {
+type commonConfigData struct {
 	fmt     string
 	name    string
 	root    string
@@ -23,19 +23,19 @@ type CommonConfigData struct {
 	depth   int
 }
 
-type FlagConfigData struct {
+type flagConfigData struct {
 	helpPtr   *bool
 	fmtPtr    *string
 	namePtr   *string
 	rootPtr   *string
-	matchPtr  *string //NAME,RELNAME,ABSNAME
+	matchPtr  *string
 	globPtr   *string
 	regexpPtr *string
 	depthPtr  *int
 }
 
-func (thls *FlagConfigData) toCommon() (cfg *CommonConfigData, err error) {
-	cfg = new(CommonConfigData)
+func (thls *flagConfigData) toCommon() (cfg *commonConfigData, err error) {
+	cfg = new(commonConfigData)
 	for range "1" {
 		if len(*thls.fmtPtr) <= 0 {
 			err = errors.New("format an empty string")
@@ -95,59 +95,63 @@ const (
 	EmptyStr string = ""
 )
 
-var GlobalCfg *CommonConfigData = nil
+var g_cfg *commonConfigData = nil
 
 func main() {
-	flagConfig := FlagConfigData{}
+	flagCfg := flagConfigData{}
 
-	flagConfig.helpPtr = flag.Bool("help", false, "show this help")
-	flagConfig.fmtPtr = flag.String("fmt", "<RELNAME>, <MD5>, <SIZE>", "combine with <MD5>,<SIZE>,<MTIME>,<NAME>,<RELNAME>,<ABSNAME>")
-	flagConfig.namePtr = flag.String("name", "", "set file name")
-	flagConfig.rootPtr = flag.String("root", ".", "set root path")
-	flagConfig.matchPtr = flag.String("match", "NAME", "one of NAME,RELNAME,ABSNAME")
-	flagConfig.globPtr = flag.String("glob", "", "match with glob")
-	flagConfig.regexpPtr = flag.String("regexp", "", "match with regexp")
-	flagConfig.depthPtr = flag.Int("depth", 0, "set path maximum depth")
+	flagCfg.helpPtr = flag.Bool("help", false, "show this help")
+	flagCfg.fmtPtr = flag.String("fmt", "<RELNAME>, <MD5>, <SIZE>", "combine with <MD5>,<SIZE>,<MTIME>,<NAME>,<RELNAME>,<ABSNAME>")
+	flagCfg.namePtr = flag.String("name", "", "set file name")
+	flagCfg.rootPtr = flag.String("root", ".", "set root path")
+	flagCfg.matchPtr = flag.String("match", "NAME", "one of NAME,RELNAME,ABSNAME")
+	flagCfg.globPtr = flag.String("glob", "", "match with glob")
+	flagCfg.regexpPtr = flag.String("regexp", "", "match with regexp")
+	flagCfg.depthPtr = flag.Int("depth", 0, "set path maximum depth")
 	//所有标志都声明完成以后，调用 flag.Parse() 来执行命令行解析。
 	flag.Parse()
 
-	if *flagConfig.helpPtr {
+	if *flagCfg.helpPtr {
 		flag.Usage()
 		return
 	}
 
-	if cfg, err := flagConfig.toCommon(); err == nil {
-		GlobalCfg = cfg
-	} else {
+	var err error
+	if g_cfg, err = flagCfg.toCommon(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(100)
 		return
 	}
 
-	if GlobalCfg.name != EmptyStr {
-		info, err := os.Lstat(GlobalCfg.name)
-		if err != nil {
+	if g_cfg.name != EmptyStr {
+		var absName, rootDir string
+		if absName, err = filepath.Abs(g_cfg.name); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(100)
 			return
 		}
-		tmpAbsName, _ := filepath.Abs(GlobalCfg.name)
-		tmpRootStr := filepath.Dir(tmpAbsName)
-		fmtData, err := _formatData(tmpRootStr, tmpAbsName, info, GlobalCfg.fmt)
-		if err != nil {
+		rootDir = filepath.Dir(absName)
+		var info os.FileInfo
+		if info, err = os.Lstat(g_cfg.name); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(100)
 			return
 		}
-		fmt.Println(fmt.Sprintf("RootPath=%v", tmpRootStr))
-		fmt.Println(fmtData)
+		var fmttedData string
+		if fmttedData, err = _formatData(rootDir, absName, info, g_cfg.fmt); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(100)
+			return
+		}
+		fmt.Println(fmt.Sprintf("RootPath=%v", rootDir))
+		fmt.Println(fmttedData)
 		return
 	}
 
 	//os.Getwd() [Getwd返回与当前目录对应的根路径名].
-	fmt.Println(fmt.Sprintf("RootPath=%v", GlobalCfg.root))
-	if err := filepath.Walk(GlobalCfg.root, _WalkCallbackFunc); err != nil {
-		fmt.Println(fmt.Printf("ERROR, filepath.Walk FAIL, err=%v", err))
+	fmt.Println(fmt.Sprintf("RootPath=%v", g_cfg.root))
+	if err = filepath.Walk(g_cfg.root, _WalkCallbackFunc); err != nil {
+		fmt.Fprintln(os.Stderr, fmt.Sprintf("ERROR, filepath.Walk FAIL, err=%v", err))
 		os.Exit(100)
 		return
 	}
@@ -263,10 +267,10 @@ func _WalkCallbackFunc(path string, info os.FileInfo, errIn error) error {
 		return err
 	}
 
-	if info.IsDir() && 0 < GlobalCfg.depth {
-		relativePath := strings.SplitN(path, GlobalCfg.root, 2)[1]
+	if info.IsDir() && 0 < g_cfg.depth {
+		relativePath := strings.SplitN(path, g_cfg.root, 2)[1]
 		curLevel := len(strings.Split(relativePath, string(os.PathSeparator))) - 1
-		if GlobalCfg.depth < curLevel {
+		if g_cfg.depth < curLevel {
 			return filepath.SkipDir
 		}
 	}
@@ -275,11 +279,11 @@ func _WalkCallbackFunc(path string, info os.FileInfo, errIn error) error {
 		return err
 	}
 
-	if !isMatch(GlobalCfg.root, path, info, GlobalCfg.glob, GlobalCfg.pattern, GlobalCfg.match) {
+	if !isMatch(g_cfg.root, path, info, g_cfg.glob, g_cfg.pattern, g_cfg.match) {
 		return nil
 	}
 
-	fmtData, err := _formatData(GlobalCfg.root, path, info, GlobalCfg.fmt)
+	fmtData, err := _formatData(g_cfg.root, path, info, g_cfg.fmt)
 	if err != nil {
 		fmt.Println(fmt.Sprintf("[ERROR] %v, err=%v", path, err))
 		err = nil
