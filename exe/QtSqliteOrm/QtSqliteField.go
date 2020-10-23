@@ -195,32 +195,32 @@ func (self *QtSqliteField) generate_get_data_field(INDENT string, DELIMITER stri
 	} else if self.QtDataType == "int" {
 		line = fmt.Sprintf(`currData.%s = query.value("%s").toInt(&isOk);`, self.QtDataName, self.QtDataName)
 		slice_ = append(slice_, line)
-		line = fmt.Sprintf(`if (!isOk) { currData.idq_%s = false; currData.%s = 0; }`, self.QtDataName, self.QtDataName)
+		line = fmt.Sprintf(`if (!isOk) { currData.iuq_%s = false; currData.%s = 0; }`, self.QtDataName, self.QtDataName)
 		slice_ = append(slice_, line)
 	} else if self.QtDataType == "unsigned int" {
 		line = fmt.Sprintf(`currData.%s = query.value("%s").toUInt(&isOk);`, self.QtDataName, self.QtDataName)
 		slice_ = append(slice_, line)
-		line = fmt.Sprintf(`if (!isOk) { currData.idq_%s = false; currData.%s = 0; }`, self.QtDataName, self.QtDataName)
+		line = fmt.Sprintf(`if (!isOk) { currData.iuq_%s = false; currData.%s = 0; }`, self.QtDataName, self.QtDataName)
 		slice_ = append(slice_, line)
 	} else if self.QtDataType == "long long" {
 		line = fmt.Sprintf(`currData.%s = query.value("%s").toLongLong(&isOk);`, self.QtDataName, self.QtDataName)
 		slice_ = append(slice_, line)
-		line = fmt.Sprintf(`if (!isOk) { currData.idq_%s = false; currData.%s = 0; }`, self.QtDataName, self.QtDataName)
+		line = fmt.Sprintf(`if (!isOk) { currData.iuq_%s = false; currData.%s = 0; }`, self.QtDataName, self.QtDataName)
 		slice_ = append(slice_, line)
 	} else if self.QtDataType == "unsigned long long" {
 		line = fmt.Sprintf(`currData.%s = query.value("%s").toULongLong(&isOk);`, self.QtDataName, self.QtDataName)
 		slice_ = append(slice_, line)
-		line = fmt.Sprintf(`if (!isOk) { currData.idq_%s = false; currData.%s = 0; }`, self.QtDataName, self.QtDataName)
+		line = fmt.Sprintf(`if (!isOk) { currData.iuq_%s = false; currData.%s = 0; }`, self.QtDataName, self.QtDataName)
 		slice_ = append(slice_, line)
 	} else if self.QtDataType == "float" {
 		line = fmt.Sprintf(`currData.%s = query.value("%s").toFloat(&isOk);`, self.QtDataName, self.QtDataName)
 		slice_ = append(slice_, line)
-		line = fmt.Sprintf(`if (!isOk) { currData.idq_%s = false; currData.%s = 0; }`, self.QtDataName, self.QtDataName)
+		line = fmt.Sprintf(`if (!isOk) { currData.iuq_%s = false; currData.%s = 0; }`, self.QtDataName, self.QtDataName)
 		slice_ = append(slice_, line)
 	} else if self.QtDataType == "double" {
 		line = fmt.Sprintf(`currData.%s = query.value("%s").toDouble(&isOk);`, self.QtDataName, self.QtDataName)
 		slice_ = append(slice_, line)
-		line = fmt.Sprintf(`if (!isOk) { currData.idq_%s = false; currData.%s = 0; }`, self.QtDataName, self.QtDataName)
+		line = fmt.Sprintf(`if (!isOk) { currData.iuq_%s = false; currData.%s = 0; }`, self.QtDataName, self.QtDataName)
 		slice_ = append(slice_, line)
 	} else {
 		panic(fmt.Sprintf("QtDataType=%v,QtDataName=%v", self.QtDataType, self.QtDataName))

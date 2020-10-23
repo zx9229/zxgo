@@ -281,7 +281,7 @@ func (self *QtSqliteStruct) generate_insert_sql() string {
 	content += INDENT + "{" + DELIMITER
 	content += INDENT + `    QString sqlKeyword = insertOrReplace ? QObject::tr("INSERT OR REPLACE INTO") : QObject::tr("INSERT INTO");` + DELIMITER
 	content += INDENT + `    QString strKey, strVal;` + DELIMITER
-	temp_str = INDENT + `    if (this->idq_%s) { strKey += "%s,"; strVal += QObject::tr("'%%1',").QString::arg(this->%s); }` + DELIMITER
+	temp_str = INDENT + `    if (this->iuq_%s) { strKey += "%s,"; strVal += QObject::tr("'%%1',").QString::arg(this->%s); }` + DELIMITER
 	for _, fieldObj := range self.Fields {
 		if !fieldObj.SqliteValid {
 			continue
@@ -333,7 +333,7 @@ func (self *QtSqliteStruct) generate_delete_sql() string {
 	temp_str = INDENT + `    QString sql = QObject::tr("DELETE FROM %%1 WHERE 1=1 ").QString::arg(%s);` + DELIMITER
 	content += fmt.Sprintf(temp_str, tablenamestr)
 
-	temp_str = INDENT + `    if (this->idq_%s) { sql += QObject::tr("AND %s='%%1' ").QString::arg(this->%s); }` + DELIMITER
+	temp_str = INDENT + `    if (this->w_%s) { sql += QObject::tr("AND %s='%%1' ").QString::arg(this->%s); }` + DELIMITER
 	for _, fieldObj := range self.Fields {
 		if !fieldObj.SqliteValid {
 			continue
@@ -407,7 +407,7 @@ func (self *QtSqliteStruct) generate_query_sql() string {
 	temp_str = INDENT + `    QString sql = QObject::tr("SELECT * FROM %%1 WHERE 1=1 ").QString::arg(%s);` + DELIMITER
 	content += fmt.Sprintf(temp_str, tablenamestr)
 
-	temp_str = INDENT + `    if (this->idq_%s) { sql += QObject::tr("AND %s='%%1' ").QString::arg(this->%s); }` + DELIMITER
+	temp_str = INDENT + `    if (this->w_%s) { sql += QObject::tr("AND %s='%%1' ").QString::arg(this->%s); }` + DELIMITER
 	for _, fieldObj := range self.Fields {
 		if !fieldObj.SqliteValid {
 			continue
@@ -438,6 +438,52 @@ func (self *QtSqliteStruct) generate_query_data() string {
 	return content
 }
 
+func (self *QtSqliteStruct) generate_update_sql() string {
+	INDENT := repeatContent("    ", 1)
+	DELIMITER := "\r\n"
+	temp_str := ""
+
+	content := ""
+	content += INDENT + "QString update_sql()" + DELIMITER
+	content += INDENT + "{" + DELIMITER
+	content += INDENT + `    QString strSet, strWhere;` + DELIMITER
+	temp_str1 := INDENT + `    if (this->iuq_%s) { strSet += QObject::tr("%s='%%1',").QString::arg(this->%s); }` + DELIMITER
+	temp_str2 := INDENT + `    if (this->w_%s) { strWhere += QObject::tr("AND %s='%%1' ").QString::arg(this->%s); }` + DELIMITER
+	for _, fieldObj := range self.Fields {
+		if !fieldObj.SqliteValid {
+			continue
+		}
+		content += fmt.Sprintf(temp_str1, fieldObj.QtDataName, fieldObj.QtDataName, fieldObj.QtDataName)
+		content += fmt.Sprintf(temp_str2, fieldObj.QtDataName, fieldObj.QtDataName, fieldObj.QtDataName)
+	}
+	content += INDENT + "    strSet.chop(1);" + DELIMITER
+
+	tablenamestr := "static_table_name()"
+	if otnField := self.GetField_ObjectTableName(); otnField != nil {
+		tablenamestr = fmt.Sprintf("this->otn_%s ? object_table_name() : static_table_name()", otnField.QtDataName)
+	}
+	temp_str = INDENT + `    QString sql = QObject::tr("UPDATE %%1 SET %%2 WHERE 1=1 %%3").QString::arg(%s).QString::arg(strSet).QString::arg(strWhere);` + DELIMITER
+	content += fmt.Sprintf(temp_str, tablenamestr)
+
+	content += INDENT + "    return sql;" + DELIMITER
+	content += INDENT + "};" + DELIMITER
+
+	return content
+}
+
+func (self *QtSqliteStruct) generate_update_data() string {
+	INDENT := repeatContent("    ", 1)
+	DELIMITER := "\r\n"
+
+	content := ""
+	content += INDENT + "bool update_data(QSqlQuery& query)" + DELIMITER
+	content += INDENT + "{" + DELIMITER
+	content += INDENT + `    return query.exec(update_sql());` + DELIMITER
+	content += INDENT + "};" + DELIMITER
+
+	return content
+}
+
 func (self *QtSqliteStruct) generate_flush_flag() string {
 	INDENT := repeatContent("    ", 1)
 	DELIMITER := "\r\n"
@@ -445,11 +491,13 @@ func (self *QtSqliteStruct) generate_flush_flag() string {
 	content := ""
 	content += INDENT + "void flush_flag(bool flagValue)" + DELIMITER
 	content += INDENT + "{" + DELIMITER
-	tmpStr1 := INDENT + `    this->idq_%s = flagValue;` + DELIMITER
+	tmpStr1 := INDENT + `    this->iuq_%s = flagValue;` + DELIMITER
+	tmpStr3 := INDENT + `    this->w_%s = flagValue;` + DELIMITER
 	tmpStr2 := INDENT + `    this->otn_%s = flagValue;` + DELIMITER
 	for _, fieldObj := range self.Fields {
 		if fieldObj.SqliteValid {
 			content += fmt.Sprintf(tmpStr1, fieldObj.QtDataName)
+			content += fmt.Sprintf(tmpStr3, fieldObj.QtDataName)
 		} else {
 			if fieldObj.ObjectTableName {
 				content += fmt.Sprintf(tmpStr2, fieldObj.QtDataName)
@@ -504,12 +552,14 @@ func (self *QtSqliteStruct) generate_cxx_definition_members() string {
 
 	content := ""
 	tmpStr1 := INDENT + `%s %s;//%s` + DELIMITER
-	tmpStr2 := INDENT + `bool idq_%s;` + DELIMITER //insert+delete+query
+	tmpStr2 := INDENT + `bool iuq_%s;` + DELIMITER //insert+update
+	tmpStr4 := INDENT + `bool w_%s;` + DELIMITER   //where
 	tmpStr3 := INDENT + `bool otn_%s;` + DELIMITER //object_table_name
 	for _, fieldObj := range self.Fields {
 		content += fmt.Sprintf(tmpStr1, fieldObj.QtDataType, fieldObj.QtDataName, fieldObj.calc_SqliteSet())
 		if fieldObj.SqliteValid {
 			content += fmt.Sprintf(tmpStr2, fieldObj.QtDataName)
+			content += fmt.Sprintf(tmpStr4, fieldObj.QtDataName)
 		} else {
 			if fieldObj.ObjectTableName {
 				content += fmt.Sprintf(tmpStr3, fieldObj.QtDataName)
@@ -541,6 +591,8 @@ func (self *QtSqliteStruct) generate_cxx_definition() string {
 	content += self.generate_get_data()
 	content += self.generate_query_sql()
 	content += self.generate_query_data()
+	content += self.generate_update_sql()
+	content += self.generate_update_data()
 	content += self.generate_flush_flag()
 	content += self.generate_pk_equal()
 
