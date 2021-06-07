@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-var homedir string
+var argHome string
 
 func main() {
 	var (
@@ -28,7 +28,7 @@ func main() {
 	flag.BoolVar(&argHelp, "help", false, "[M] show this help.")
 	flag.IntVar(&argPort, "port", 9999, "[M] port")
 	flag.StringVar(&argHost, "host", "localhost", "[M] host")
-	flag.StringVar(&homedir, "homedir", ".", "[M] home directory")
+	flag.StringVar(&argHome, "home", ".", "[M] home directory")
 	flag.Parse()
 
 	for range "1" {
@@ -41,10 +41,10 @@ func main() {
 			break
 		}
 
-		log.Printf("homedir: [%v]", homedir)
+		log.Printf("argHome: [%v]", argHome)
 		addr := fmt.Sprintf("%s:%d", argHost, argPort)
 
-		http.Handle("/", http.FileServer(http.Dir(homedir)))
+		http.Handle("/", http.FileServer(http.Dir(argHome)))
 		http.HandleFunc("/upload", pageUpload)
 		http.HandleFunc("/uploadProcess", funcUpload)
 
@@ -113,7 +113,7 @@ func funcUpload(writer http.ResponseWriter, request *http.Request) {
 		dirnameValue := request.FormValue("dirname")
 		message += fmt.Sprintf("<br>dirname: [%v]\n", dirnameValue)
 		if !filepath.IsAbs(dirnameValue) {
-			if dirnameValue, err = filepath.Abs(filepath.Join(homedir, dirnameValue)); err != nil {
+			if dirnameValue, err = filepath.Abs(filepath.Join(argHome, dirnameValue)); err != nil {
 				message += fmt.Sprintf("<br>error_message: [%v]\n", err)
 				log.Println(err)
 				break
